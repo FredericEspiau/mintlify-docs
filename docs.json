@@ -110,5 +110,17 @@
     "socials": {
       "github": "https://github.com/your-org/cookingauto"
     }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   }
 }
