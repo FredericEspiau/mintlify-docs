@@ -1,0 +1,102 @@
+---
+title: "delete"
+description: "Delete flashcards by ID"
+---
+
+## Synopsis
+
+```bash
+pnpm start delete [ids...] [options]
+```
+
+Remove cards from the database by ID or delete all cards.
+
+## Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `--all` | boolean | Delete ALL cards (requires confirmation) |
+
+## Examples
+
+### Delete Specific Cards
+
+```bash
+# Delete a single card by ID
+pnpm start delete a1b2c3d4
+
+# Delete multiple cards
+pnpm start delete a1b2c3d4 e5f6g7h8 i9j0k1l2
+```
+
+### Delete All Cards
+
+```bash
+# Delete entire database (prompts for confirmation)
+pnpm start delete --all
+```
+
+## Finding Card IDs
+
+Use the `list` command to find card IDs:
+
+```bash
+# List cards with their IDs
+pnpm start list
+
+# Output shows IDs:
+# ID: a1b2c3d4  │ Front: Comment faire une julienne...
+# ID: e5f6g7h8  │ Front: Quelle température pour...
+```
+
+## Confirmation Prompt
+
+When deleting multiple cards or using `--all`:
+
+```
+⚠️  Delete 5 cards?
+
+Cards to delete:
+  a1b2c3d4 - Comment faire une julienne...
+  e5f6g7h8 - Quelle température pour...
+  ...
+
+Type 'yes' to confirm: _
+```
+
+## ID Format
+
+Card IDs are the first 8 characters of a SHA256 hash of the card content:
+
+```
+Full ID:  a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+Short ID: a1b2c3d4 (used in commands)
+```
+
+You can use either the full or short ID.
+
+## Undo
+
+<Warning>
+Deletion is permanent. There is no undo.
+</Warning>
+
+Consider backing up before bulk deletions:
+
+```bash
+# Backup database
+cp output/cards/cooking-cards.json output/cards/cooking-cards.backup.json
+
+# Then delete
+pnpm start delete --all
+
+# Restore if needed
+cp output/cards/cooking-cards.backup.json output/cards/cooking-cards.json
+```
+
+## Review Logs
+
+When cards are deleted:
+- The card entry is removed from `cards` object
+- Associated review logs are **preserved** in `reviewLogs` array
+- This maintains historical review statistics

@@ -1,0 +1,191 @@
+---
+title: "FSRS Scheduling"
+description: "Deep dive into interval calculation and scheduling logic"
+---
+
+## FSRS Parameters
+
+Configuration in `src/config.ts`:
+
+```typescript
+export const FSRS_CONFIG = {
+  enable_fuzz: true,
+  enable_short_term: true,
+  maximum_interval: 365,
+  request_retention: 0.9,
+};
+```
+
+### Parameter Details
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `enable_fuzz` | true | Add ±5% randomness to intervals |
+| `enable_short_term` | true | Allow intra-day scheduling during learning |
+| `maximum_interval` | 365 | Cap intervals at 1 year |
+| `request_retention` | 0.9 | Target 90% recall probability |
+
+## Interval Calculation
+
+FSRS calculates optimal intervals using a mathematical model of human memory:
+
+### Stability Formula
+
+After a successful review:
+
+```
+new_stability = stability × e^(w × (rating - 1))
+```
+
+Where:
+- `stability` = current stability (days)
+- `w` = learned weight parameter
+- `rating` = 1-4 rating given
+
+### Retrievability Formula
+
+Probability of recalling after `t` days:
+
+```
+R(t) = e^(-t / stability)
+```
+
+### Optimal Interval
+
+The next interval is chosen so retrievability equals target retention:
+
+```
+interval = stability × ln(request_retention)
+```
+
+## State Transitions
+
+### New → Learning
+
+First review of a new card:
+
+```typescript
+// Initial learning steps (minutes)
+const learningSteps = [1, 10];  // 1 min, then 10 min
+
+// After "Good" rating on last step → graduates to Review
+```
+
+### Learning → Review (Graduation)
+
+When you rate "Good" or "Easy" on the final learning step:
+- Card enters Review state
+- First interval: typically 1-4 days
+- Stability initializes based on difficulty
+
+### Review → Relearning (Lapse)
+
+When you rate "Again" on a Review card:
+- Card lapses
+- Enters Relearning state
+- Stability reduced by lapse penalty
+- Must pass relearning steps
+
+### Relearning → Review
+
+When you successfully complete relearning:
+- Card returns to Review
+- Interval based on reduced stability
+
+## Scheduler Implementation
+
+```typescript
+// src/srs/scheduler.ts
+
+import { FSRS, Rating } from "ts-fsrs";
+
+export function scheduleCard(
+  fsrs: FSRS,
+  card: FsrsCard,
+  rating: Rating
+): { card: FsrsCard; log: ReviewLog } {
+  // FSRS calculates next state
+  const result = fsrs.repeat(card, Date.now());
+  
+  // Get scheduled card for this rating
+  const scheduled = result[rating];
+  
+  return {
+    card: scheduled.card,
+    log: scheduled.log,
+  };
+}
+```
+
+## Dependency Injection
+
+The FSRS instance is created once and passed to functions:
+
+```typescript
+// Create configured FSRS instance
+const fsrs = new FSRS(FSRS_CONFIG);
+
+// Pass to scheduling functions
+const result = scheduleCard(fsrs, card, Rating.Good);
+```
+
+This avoids global state and enables testing.
+
+## Fuzz Factor
+
+When `enable_fuzz: true`, intervals are randomized ±5%:
+
+```
+# Without fuzz:
+Due: January 20 (exactly 10 days)
+
+# With fuzz:
+Due: January 19-21 (9-11 days randomly)
+```
+
+Benefits:
+- Spreads reviews across days
+- Prevents review pile-up
+- More natural spacing
+
+## Serialization
+
+FSRS card objects are serialized for JSON storage:
+
+```typescript
+// ts-fsrs Card object → JSON-safe format
+function serializeCard(card: Card): FsrsCardData {
+  return {
+    due: card.due.toISOString(),
+    stability: card.stability,
+    difficulty: card.difficulty,
+    elapsed_days: card.elapsed_days,
+    scheduled_days: card.scheduled_days,
+    reps: card.reps,
+    lapses: card.lapses,
+    state: card.state,
+  };
+}
+
+// JSON → ts-fsrs Card object
+function deserializeCard(data: FsrsCardData): Card {
+  return {
+    ...data,
+    due: new Date(data.due),
+    last_review: new Date(data.last_review),
+  };
+}
+```
+
+## Retention Analysis
+
+The scheduler can calculate current retention:
+
+```typescript
+function calculateRetention(card: Card): number {
+  const elapsed = daysSince(card.last_review);
+  return Math.exp(-elapsed / card.stability);
+}
+```
+
+This is used in the `stats` command to estimate overall retention.

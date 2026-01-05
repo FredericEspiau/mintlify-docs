@@ -1,0 +1,101 @@
+---
+title: "stats"
+description: "Display SRS statistics dashboard"
+---
+
+## Synopsis
+
+```bash
+pnpm start stats
+```
+
+Display a comprehensive statistics dashboard for your flashcard collection.
+
+## Output Example
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║                    CookingAuto Statistics                    ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║  Total Cards: 142                                            ║
+║                                                              ║
+║  By State:                                                   ║
+║    ████████████████░░░░ New:        32 (23%)                ║
+║    ████░░░░░░░░░░░░░░░░ Learning:   18 (13%)                ║
+║    ██████████████████░░ Review:     85 (60%)                ║
+║    ██░░░░░░░░░░░░░░░░░░ Relearning:  7 (5%)                 ║
+║                                                              ║
+║  By Tag:                                                     ║
+║    technique:  68 cards                                      ║
+║    ingredient: 45 cards                                      ║
+║    recipe:     29 cards                                      ║
+║                                                              ║
+║  Due Today:     15 cards                                     ║
+║  Due This Week: 42 cards                                     ║
+║                                                              ║
+║  Average Difficulty: 4.2/10                                  ║
+║  Average Stability:  12.5 days                               ║
+║  Retention Rate:     91.2%                                   ║
+║                                                              ║
+║  Recent Reviews:                                             ║
+║    Today:     12 reviews                                     ║
+║    This Week: 78 reviews                                     ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+## Metrics Explained
+
+### Card States
+
+| Metric | Description |
+|--------|-------------|
+| New | Cards never reviewed |
+| Learning | Cards in initial learning phase |
+| Review | Graduated cards in normal review cycle |
+| Relearning | Lapsed cards being relearned |
+
+### FSRS Metrics
+
+| Metric | Description |
+|--------|-------------|
+| Difficulty | Average card difficulty (1-10). Lower is easier. |
+| Stability | Average days until 90% forgetting probability |
+| Retention Rate | Estimated % of cards you'd recall if tested now |
+
+### Due Metrics
+
+| Metric | Description |
+|--------|-------------|
+| Due Today | Cards needing review today |
+| Due This Week | Cards due in next 7 days |
+
+### Tag Distribution
+
+Shows card count per tag, helping identify content balance.
+
+## Interpreting Stats
+
+<Tip>
+**Healthy metrics:**
+- Retention rate > 85%
+- Average difficulty 3-6
+- Balanced tag distribution
+</Tip>
+
+<Warning>
+**Warning signs:**
+- High % of Relearning cards → too many lapses
+- Average difficulty > 7 → cards may be too hard
+- Many New cards → review backlog forming
+</Warning>
+
+## Time-Based Analysis
+
+The stats command calculates metrics based on:
+- Card creation dates
+- Review log history
+- FSRS predictions
+
+All data comes from `output/cards/cooking-cards.json`.

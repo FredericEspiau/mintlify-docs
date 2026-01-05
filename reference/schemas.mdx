@@ -1,0 +1,231 @@
+---
+title: "Zod Schemas"
+description: "Runtime validation schemas for data boundaries"
+---
+
+## Overview
+
+CookingAuto uses Effect Schema (Zod-compatible) for runtime validation at system boundaries:
+- API responses
+- File parsing
+- CLI input
+- Database loading
+
+## CLI Schemas
+
+### cliOptionsSchema
+
+Validates CLI arguments:
+
+```typescript
+// src/types/schemas.ts
+
+import { Schema } from "effect";
+
+const cliOptionsSchema = Schema.Struct({
+  mode: Schema.String,
+  date: Schema.optional(Schema.String),
+  videoFile: Schema.optional(Schema.String),
+  audioFile: Schema.optional(Schema.String),
+  transcriptFile: Schema.optional(Schema.String),
+  output: Schema.optional(Schema.String),
+  engine: Schema.optional(
+    Schema.Literal("whisperx", "pyannote")
+  ),
+});
+```
+
+## OAuth Schemas
+
+### oauthCredentialsSchema
+
+Validates Google OAuth credentials file:
+
+```typescript
+const oauthCredentialsSchema = Schema.Struct({
+  installed: Schema.Struct({
+    client_id: Schema.String,
+    project_id: Schema.String,
+    auth_uri: Schema.String,
+    token_uri: Schema.String,
+    client_secret: Schema.String,
+    redirect_uris: Schema.Array(Schema.String),
+  }),
+});
+```
+
+### storedTokensSchema
+
+Validates persisted OAuth tokens:
+
+```typescript
+const storedTokensSchema = Schema.Struct({
+  access_token: Schema.String,
+  refresh_token: Schema.String,
+  scope: Schema.String,
+  token_type: Schema.Literal("Bearer"),
+  expiry_date: Schema.Number,
+});
+```
+
+## Transcription Schemas
+
+### whisperXOutputSchema
+
+Validates WhisperX JSON output:
+
+```typescript
+const whisperXWordSchema = Schema.Struct({
+  word: Schema.String,
+  start: Schema.Number,
+  end: Schema.Number,
+});
+
+const whisperXSegmentSchema = Schema.Struct({
+  start: Schema.Number,
+  end: Schema.Number,
+  text: Schema.String,
+  speaker: Schema.optional(Schema.String),
+  words: Schema.optional(Schema.Array(whisperXWordSchema)),
+});
+
+const whisperXOutputSchema = Schema.Struct({
+  segments: Schema.Array(whisperXSegmentSchema),
+});
+```
+
+### pyannoteOutputSchema
+
+Validates Pyannote API response:
+
+```typescript
+const pyannoteWordSchema = Schema.Struct({
+  word: Schema.String,
+  start: Schema.Number,
+  end: Schema.Number,
+  confidence: Schema.optional(Schema.Number),
+});
+
+const pyannoteTurnSchema = Schema.Struct({
+  speaker: Schema.String,
+  words: Schema.Array(pyannoteWordSchema),
+});
+
+const pyannoteOutputSchema = Schema.Struct({
+  output: Schema.Struct({
+    transcription: Schema.Struct({
+      turns: Schema.Array(pyannoteTurnSchema),
+    }),
+  }),
+});
+```
+
+## SRS Schemas
+
+### cardContentSchema
+
+Validates card content:
+
+```typescript
+const cardContentSchema = Schema.Struct({
+  front: Schema.String,
+  back: Schema.String,
+  tags: Schema.Array(Schema.String),
+});
+```
+
+### fsrsCardDataSchema
+
+Validates FSRS scheduling data:
+
+```typescript
+const fsrsCardDataSchema = Schema.Struct({
+  due: Schema.String,
+  stability: Schema.Number,
+  difficulty: Schema.Number,
+  elapsed_days: Schema.Number,
+  scheduled_days: Schema.Number,
+  reps: Schema.Number,
+  lapses: Schema.Number,
+  state: Schema.Literal(0, 1, 2, 3),
+});
+```
+
+### srsCardSchema
+
+Complete card schema:
+
+```typescript
+const srsCardSchema = Schema.Struct({
+  id: Schema.String,
+  content: cardContentSchema,
+  scheduling: fsrsCardDataSchema,
+  metadata: Schema.Struct({
+    createdAt: Schema.String,
+    sourceTranscript: Schema.String,
+    updatedAt: Schema.String,
+  }),
+});
+```
+
+### cardDatabaseSchema
+
+Complete database schema:
+
+```typescript
+const cardDatabaseSchema = Schema.Struct({
+  cards: Schema.Record({ key: Schema.String, value: srsCardSchema }),
+  reviewLogs: Schema.Array(reviewLogSchema),
+  lastUpdated: Schema.String,
+  version: Schema.Literal(1),
+});
+```
+
+## Usage Patterns
+
+### Parsing Unknown Data
+
+```typescript
+import { Schema } from "effect";
+
+function loadDatabase(path: string): CardDatabase {
+  const raw = JSON.parse(fs.readFileSync(path, "utf-8"));
+  return Schema.decodeUnknownSync(cardDatabaseSchema)(raw);
+}
+```
+
+### Safe Parsing with Errors
+
+```typescript
+import { Effect, Schema } from "effect";
+
+const parseResult = Schema.decodeUnknown(cardDatabaseSchema)(raw);
+
+Effect.runSync(
+  Effect.match(parseResult, {
+    onFailure: (error) => {
+      logger.error("Invalid database format", error);
+      return createEmptyDatabase();
+    },
+    onSuccess: (db) => db,
+  })
+);
+```
+
+### Type Inference
+
+Infer TypeScript types from schemas:
+
+```typescript
+type CardDatabase = Schema.Schema.Type<typeof cardDatabaseSchema>;
+type SrsCard = Schema.Schema.Type<typeof srsCardSchema>;
+```
+
+## Validation Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| Runtime safety | Catch invalid data at boundaries |
+| Type inference | Generate TS types from schemas |
+| Descriptive errors | Clear messages on validation failure |
+| Composability | Combine schemas for complex types |

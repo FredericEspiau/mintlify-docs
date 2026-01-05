@@ -1,0 +1,210 @@
+---
+title: "Gemini AI"
+description: "Gemini API setup and card generation"
+---
+
+## Overview
+
+CookingAuto uses Google's Gemini AI to analyze transcripts and generate flashcards.
+
+## Setup
+
+### Get API Key
+
+1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
+2. Create or select a project
+3. Generate an API key
+4. Set environment variable:
+
+```bash
+export GEMINI_API_KEY=your-api-key
+```
+
+### Model Selection
+
+```bash
+# Default model
+GEMINI_MODEL=gemini-2.5-flash
+
+# Alternative models
+GEMINI_MODEL=gemini-2.0-pro
+GEMINI_MODEL=gemini-2.0-flash
+```
+
+## Client Usage
+
+The client is created per-request (no global state):
+
+```typescript
+// src/srs/generator.ts
+
+import { GoogleGenAI } from "@google/genai";
+
+function createClient(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "GEMINI_API_KEY not set. Get one at https://aistudio.google.com/apikey"
+    );
+  }
+  return new GoogleGenAI({ apiKey });
+}
+```
+
+## API Call Structure
+
+```typescript
+async function generateCards(
+  transcript: string,
+  prompt: string
+): Promise<CardContent[]> {
+  const client = createClient();
+  const model = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+  
+  const response = await client.models.generateContent({
+    model,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: prompt },
+          { text: `\n\nTRANSCRIPTION:\n${transcript}` },
+        ],
+      },
+    ],
+  });
+  
+  return parseResponse(response.text);
+}
+```
+
+## Prompt Engineering
+
+### Structure
+
+Mode prompts follow a consistent structure:
+
+```
+1. Role definition (expert in X)
+2. Task description (analyze transcript, generate cards)
+3. Rules and constraints
+4. Tag definitions
+5. Filtering instructions
+6. Output format specification
+```
+
+### Example Prompt
+
+```typescript
+const PROMPT = `Tu es un expert en cuisine française.
+Analyse cette transcription et génère des flashcards éducatives.
+
+RÈGLES:
+- Cartes en français uniquement
+- Question claire et précise (front)
+- Réponse concise mais complète (back)
+- Tags: "technique", "ingredient", ou "recipe"
+- Ignore les connaissances évidentes
+- Maximum 20 cartes
+
+FORMAT:
+[
+  {"front": "...", "back": "...", "tags": ["..."]}
+]`;
+```
+
+## Response Parsing
+
+Gemini responses may need cleaning:
+
+```typescript
+function parseResponse(text: string): CardContent[] {
+  // Remove markdown code blocks
+  let cleaned = text
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "");
+  
+  // Normalize curly quotes (common in French)
+  cleaned = cleaned
+    .replace(/[""]/g, '"')
+    .replace(/['']/g, "'");
+  
+  // Extract JSON array
+  const match = cleaned.match(/\[[\s\S]*\]/);
+  if (!match) {
+    throw new Error("No JSON array in response");
+  }
+  
+  return JSON.parse(match[0]);
+}
+```
+
+## Rate Limiting
+
+The generator handles rate limits with exponential backoff:
+
+```typescript
+async function generateWithRetry(
+  transcript: string,
+  prompt: string,
+  maxRetries = 5
+): Promise<CardContent[]> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await generateCards(transcript, prompt);
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        const delay = Math.pow(2, attempt) * 1000;
+        logger.warn(`Rate limited, retry in ${delay}ms`);
+        await sleep(delay);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error(`Failed after ${maxRetries} attempts`);
+}
+```
+
+## Token Limits
+
+| Model | Input Limit | Output Limit |
+|-------|-------------|--------------|
+| gemini-2.5-flash | 1M tokens | 8K tokens |
+| gemini-2.0-pro | 2M tokens | 8K tokens |
+
+<Note>
+Transcripts from cooking videos typically use 5-20K tokens, well within limits.
+</Note>
+
+## Cost Considerations
+
+| Model | Input Cost | Output Cost |
+|-------|------------|-------------|
+| gemini-2.5-flash | Free tier / $0.10/1M | $0.40/1M |
+| gemini-2.0-pro | $1.25/1M | $5.00/1M |
+
+The free tier is usually sufficient for personal use.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="API key invalid">
+    Regenerate your API key at [AI Studio](https://aistudio.google.com/apikey).
+  </Accordion>
+  
+  <Accordion title="Model not found">
+    Check the model name. Valid options:
+    - `gemini-2.5-flash`
+    - `gemini-2.0-pro`
+    - `gemini-2.0-flash`
+  </Accordion>
+  
+  <Accordion title="Rate limit exceeded">
+    The built-in retry handles this. If persistent, wait a few minutes or upgrade your quota.
+  </Accordion>
+  
+  <Accordion title="Invalid JSON response">
+    Gemini occasionally produces malformed JSON. The parser handles common issues, but unusual formatting may fail. Check the prompt for clarity.
+  </Accordion>
+</AccordionGroup>

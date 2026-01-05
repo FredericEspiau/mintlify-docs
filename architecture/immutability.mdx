@@ -1,0 +1,235 @@
+---
+title: "Immutability Patterns"
+description: "How immutability is enforced throughout the codebase"
+---
+
+## Why Immutability?
+
+CookingAuto enforces immutability to:
+- Prevent hidden state mutations
+- Enable reliable debugging (state never changes unexpectedly)
+- Support pure functions that are easier to test
+- Make context threading explicit and traceable
+
+## Type-Level Enforcement
+
+### Readonly Interfaces
+
+All interfaces use `readonly` modifiers:
+
+```typescript
+// ❌ Bad - mutable interface
+interface CardDatabase {
+  cards: Record<string, SrsCard>;
+  lastUpdated: string;
+}
+
+// ✅ Good - immutable interface
+interface CardDatabase {
+  readonly cards: Readonly<Record<string, SrsCard>>;
+  readonly lastUpdated: string;
+}
+```
+
+### ReadonlyArray
+
+Arrays use `ReadonlyArray<T>` instead of `T[]`:
+
+```typescript
+// ❌ Bad - mutable array
+interface ModeConfig {
+  validTags: string[];
+}
+
+// ✅ Good - immutable array
+interface ModeConfig {
+  readonly validTags: ReadonlyArray<string>;
+}
+```
+
+## Pattern: Immutable Updates
+
+### Context Threading
+
+Pipeline context is updated by creating new objects:
+
+```typescript
+// Each module returns a NEW context
+async execute(context: PipelineContext): Promise<PipelineContext> {
+  const audioPath = await convertToAudio(context.videoPath);
+  
+  // Spread existing context, add new field
+  return {
+    ...context,
+    audioPath,
+  };
+}
+```
+
+### Database Operations
+
+Database functions return new database objects:
+
+```typescript
+// src/srs/database.ts
+
+export function addCard(
+  db: CardDatabase,
+  card: SrsCard
+): CardDatabase {
+  // Return NEW database with card added
+  return {
+    ...db,
+    cards: {
+      ...db.cards,
+      [card.id]: card,
+    },
+    lastUpdated: new Date().toISOString(),
+  };
+}
+```
+
+### Updating Nested Objects
+
+For nested updates, spread at each level:
+
+```typescript
+function updateCardContent(
+  db: CardDatabase,
+  cardId: string,
+  newBack: string
+): CardDatabase {
+  const card = db.cards[cardId];
+  
+  return {
+    ...db,
+    cards: {
+      ...db.cards,
+      [cardId]: {
+        ...card,
+        content: {
+          ...card.content,
+          back: newBack,
+        },
+        metadata: {
+          ...card.metadata,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    },
+  };
+}
+```
+
+## Atomic File Writes
+
+Database persistence uses atomic writes to prevent corruption:
+
+```typescript
+// src/srs/database.ts
+
+export async function saveDatabase(
+  path: string,
+  db: CardDatabase
+): Promise<void> {
+  const tempPath = `${path}.tmp`;
+  
+  // Write to temp file
+  await fs.promises.writeFile(
+    tempPath,
+    JSON.stringify(db, null, 2)
+  );
+  
+  // Atomic rename (prevents partial writes)
+  await fs.promises.rename(tempPath, path);
+}
+```
+
+<Note>
+Rename operations are atomic on POSIX systems, ensuring the database file is never in a partial state.
+</Note>
+
+## Dependency Injection
+
+Functions receive dependencies as parameters instead of using globals:
+
+```typescript
+// ❌ Bad - uses global scheduler
+import { globalScheduler } from "./scheduler.js";
+
+function scheduleCard(card: SrsCard, rating: Rating) {
+  return globalScheduler.schedule(card, rating);
+}
+
+// ✅ Good - dependency injection
+function scheduleCard(
+  fsrs: FSRS,
+  card: SrsCard,
+  rating: Rating
+) {
+  return fsrs.schedule(card, rating);
+}
+```
+
+Benefits:
+- No hidden dependencies
+- Easy to test with mock implementations
+- Explicit data flow
+
+## Zod Schema Immutability
+
+Schemas enforce structure at runtime:
+
+```typescript
+import { Schema } from "effect";
+
+const cardSchema = Schema.Struct({
+  id: Schema.String,
+  content: Schema.Struct({
+    front: Schema.String,
+    back: Schema.String,
+    tags: Schema.Array(Schema.String),
+  }),
+});
+
+// Parsed objects match the readonly interface
+const card = Schema.decodeUnknownSync(cardSchema)(rawData);
+```
+
+## Common Mistakes to Avoid
+
+<Warning>
+These patterns violate immutability and are not allowed:
+</Warning>
+
+```typescript
+// ❌ Array mutation
+context.tags.push("new-tag");
+
+// ❌ Object mutation
+context.metadata.updatedAt = new Date();
+
+// ❌ Map mutation
+cards.set(id, newCard);
+
+// ❌ Delete mutation
+delete cards[id];
+```
+
+Instead:
+
+```typescript
+// ✅ New array
+const newTags = [...context.tags, "new-tag"];
+
+// ✅ New object
+const newMetadata = { ...context.metadata, updatedAt: new Date() };
+
+// ✅ New Map from entries
+const newCards = new Map([...cards, [id, newCard]]);
+
+// ✅ Object.fromEntries with filter
+const newCards = Object.fromEntries(
+  Object.entries(cards).filter(([key]) => key !== id)
+);
+```

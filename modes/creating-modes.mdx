@@ -1,0 +1,190 @@
+---
+title: "Creating Modes"
+description: "Step-by-step guide to creating custom modes"
+---
+
+## Overview
+
+Create custom modes to process different types of content with specialized prompts and tags.
+
+## Step 1: Define Tags
+
+Choose 2-5 tags that categorize your content:
+
+```typescript
+// src/modes/language.ts
+
+const TAGS = ["vocabulary", "grammar", "phrase", "culture"] as const;
+```
+
+<Tip>
+Keep tags simple and mutually exclusive. Avoid overlapping categories.
+</Tip>
+
+## Step 2: Create Tag Schema
+
+Use the helper to create a Zod validation schema:
+
+```typescript
+import { createTagSchema } from "./types.js";
+
+const tagSchema = createTagSchema(TAGS);
+```
+
+## Step 3: Write the Prompt
+
+Create a detailed prompt for Gemini:
+
+```typescript
+const LANGUAGE_PROMPT = `You are a language learning expert.
+Analyze this transcript and generate flashcards.
+
+RULES:
+1. Cards in the target language with native language translations
+2. Use spaced repetition-friendly format (question → answer)
+3. Tags: "vocabulary", "grammar", "phrase", or "culture"
+4. Focus on practical, high-frequency content
+5. Maximum 20 cards per transcript
+
+OUTPUT FORMAT (JSON array):
+[
+  {
+    "front": "Question in target language",
+    "back": "Answer with translation and explanation",
+    "tags": ["vocabulary"]
+  }
+]`;
+```
+
+### Prompt Best Practices
+
+| Do | Don't |
+|----|-------|
+| Be specific about output format | Leave format ambiguous |
+| Set maximum card count | Allow unlimited generation |
+| Define what to filter out | Let obvious content through |
+| Specify language requirements | Assume language |
+
+## Step 4: Create ModeConfig
+
+Assemble the complete mode configuration:
+
+```typescript
+// src/modes/language.ts
+
+import { ModeConfig } from "./types.js";
+import { createTagSchema } from "./types.js";
+
+const TAGS = ["vocabulary", "grammar", "phrase", "culture"] as const;
+
+export const LANGUAGE_MODE: ModeConfig = {
+  name: "language",
+  cardPrompt: LANGUAGE_PROMPT,
+  databasePath: "output/cards/language-cards.json",
+  validTags: TAGS,
+  tagSchema: createTagSchema(TAGS),
+};
+```
+
+## Step 5: Register the Mode
+
+Add to the mode registry:
+
+```typescript
+// src/modes/index.ts
+
+import { COOKING_MODE } from "./cooking.js";
+import { LANGUAGE_MODE } from "./language.js";
+
+const modeRegistry: Record<string, ModeConfig> = {
+  cooking: COOKING_MODE,
+  language: LANGUAGE_MODE,  // Add new mode
+};
+```
+
+## Step 6: Update CLI Schema (Optional)
+
+If you want CLI validation of the mode name:
+
+```typescript
+// src/types/schemas.ts
+
+const modeSchema = Schema.Literal("cooking", "language");
+```
+
+## Complete Example: Language Mode
+
+```typescript
+// src/modes/language.ts
+
+import { ModeConfig } from "./types.js";
+import { createTagSchema } from "./types.js";
+
+const TAGS = ["vocabulary", "grammar", "phrase", "culture"] as const;
+
+const LANGUAGE_PROMPT = `You are an expert language teacher.
+Analyze this transcript from a language lesson and generate educational flashcards.
+
+RULES:
+1. Front: Word, phrase, or concept in the target language
+2. Back: Translation, pronunciation guide, usage example
+3. Tags: Use exactly one of: "vocabulary", "grammar", "phrase", "culture"
+4. vocabulary: Individual words and their meanings
+5. grammar: Grammar rules and patterns
+6. phrase: Complete sentences and expressions
+7. culture: Cultural context and idioms
+8. Maximum 20 cards per lesson
+9. Filter out:
+   - Basic greetings everyone knows
+   - Numbers 1-10
+   - Days of the week
+   - Content without educational value
+
+OUTPUT FORMAT:
+Return a valid JSON array:
+[
+  {
+    "front": "어떻게 지내세요?",
+    "back": "How are you? (formal) - Pronunciation: eo-tteo-ke ji-nae-se-yo",
+    "tags": ["phrase"]
+  }
+]`;
+
+export const LANGUAGE_MODE: ModeConfig = {
+  name: "language",
+  cardPrompt: LANGUAGE_PROMPT,
+  databasePath: "output/cards/language-cards.json",
+  validTags: TAGS,
+  tagSchema: createTagSchema(TAGS),
+};
+```
+
+## Testing Your Mode
+
+```bash
+# Test with a transcript file
+pnpm start -m language --transcript-file ./lesson.md
+
+# Check generated cards
+pnpm start list
+
+# Verify tags
+pnpm start list --tag vocabulary
+pnpm start list --tag grammar
+```
+
+## Debugging Tips
+
+<AccordionGroup>
+  <Accordion title="Cards have wrong tags">
+    Gemini may not follow tag instructions perfectly. Make your prompt more explicit about tag meanings and provide examples.
+  </Accordion>
+  
+  <Accordion title="No cards generated">
+    Check the transcript content. If Gemini filters everything out, adjust your filtering rules in the prompt.
+  </Accordion>
+  
+  <Accordion title="JSON parse errors">
+    Gemini sometimes wraps JSON in markdown code blocks. The parser handles this, but unusual formatting may still fail.
+  </Accordion>
+</AccordionGroup>

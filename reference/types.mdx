@@ -1,0 +1,234 @@
+---
+title: "TypeScript Types"
+description: "Key interfaces and type definitions"
+---
+
+## Pipeline Types
+
+### PipelineContext
+
+The immutable context threaded through pipeline modules:
+
+```typescript
+// src/pipeline/types.ts
+
+interface PipelineContext {
+  // Configuration
+  readonly modeConfig: ModeConfig;
+  readonly outputDirectory: string;
+  readonly transcriptionEngine: TranscriptionEngine;
+  
+  // Source-specific
+  readonly targetDate?: string;
+  
+  // Accumulated paths
+  readonly videoPath?: string;
+  readonly audioPath?: string;
+  readonly transcriptPath?: string;
+  
+  // Auth state
+  readonly oauth2Client?: OAuth2Client;
+}
+```
+
+### PipelineModule
+
+Interface for pipeline stages:
+
+```typescript
+interface PipelineModule {
+  readonly name: string;
+  readonly description: string;
+  
+  execute(context: PipelineContext): Promise<PipelineContext>;
+  shouldSkip?(context: PipelineContext): boolean;
+  validatePrerequisites?(context: PipelineContext): Promise<void>;
+}
+```
+
+### TranscriptionEngine
+
+```typescript
+type TranscriptionEngine = "whisperx" | "pyannote";
+```
+
+## Mode Types
+
+### ModeConfig
+
+```typescript
+// src/modes/types.ts
+
+interface ModeConfig {
+  readonly name: string;
+  readonly cardPrompt: string;
+  readonly databasePath: string;
+  readonly validTags: ReadonlyArray<string>;
+  readonly tagSchema: Schema.Schema<string, string>;
+}
+```
+
+## SRS Types
+
+### SrsCard
+
+```typescript
+// src/types/srs-schemas.ts
+
+interface SrsCard {
+  readonly id: string;
+  readonly content: CardContent;
+  readonly scheduling: FsrsCardData;
+  readonly metadata: CardMetadata;
+}
+```
+
+### CardContent
+
+```typescript
+interface CardContent {
+  readonly front: string;
+  readonly back: string;
+  readonly tags: ReadonlyArray<string>;
+}
+```
+
+### CardMetadata
+
+```typescript
+interface CardMetadata {
+  readonly createdAt: string;      // ISO date
+  readonly sourceTranscript: string;
+  readonly updatedAt: string;      // ISO date
+}
+```
+
+### FsrsCardData
+
+FSRS scheduling state:
+
+```typescript
+interface FsrsCardData {
+  readonly due: string;            // ISO date
+  readonly stability: number;
+  readonly difficulty: number;
+  readonly elapsed_days: number;
+  readonly scheduled_days: number;
+  readonly reps: number;
+  readonly lapses: number;
+  readonly state: CardState;
+}
+```
+
+### CardState
+
+```typescript
+enum CardState {
+  New = 0,
+  Learning = 1,
+  Review = 2,
+  Relearning = 3,
+}
+```
+
+### CardDatabase
+
+```typescript
+interface CardDatabase {
+  readonly cards: Readonly<Record<string, SrsCard>>;
+  readonly reviewLogs: ReadonlyArray<ReviewLogEntry>;
+  readonly lastUpdated: string;
+  readonly version: 1;
+}
+```
+
+### ReviewLogEntry
+
+```typescript
+interface ReviewLogEntry {
+  readonly cardId: string;
+  readonly rating: Rating;
+  readonly reviewedAt: string;
+  readonly state: CardState;
+  readonly stability: number;
+  readonly difficulty: number;
+  readonly elapsedDays: number;
+  readonly scheduledDays: number;
+}
+```
+
+### Rating
+
+```typescript
+enum Rating {
+  Again = 1,
+  Hard = 2,
+  Good = 3,
+  Easy = 4,
+}
+```
+
+## CLI Types
+
+### CliOptions
+
+```typescript
+interface CliOptions {
+  readonly mode: string;
+  readonly date?: string;
+  readonly videoFile?: string;
+  readonly audioFile?: string;
+  readonly transcriptFile?: string;
+  readonly output?: string;
+  readonly engine?: TranscriptionEngine;
+}
+```
+
+### ReviewOptions
+
+```typescript
+interface ReviewOptions {
+  readonly limit?: number;
+}
+```
+
+### ListOptions
+
+```typescript
+interface ListOptions {
+  readonly due?: boolean;
+  readonly state?: CardState;
+  readonly tag?: string;
+  readonly limit?: number;
+}
+```
+
+## Utility Types
+
+### Readonly Helpers
+
+All types use `readonly` modifiers:
+
+```typescript
+// ❌ Mutable
+interface Bad {
+  cards: Record<string, SrsCard>;
+}
+
+// ✅ Immutable
+interface Good {
+  readonly cards: Readonly<Record<string, SrsCard>>;
+}
+```
+
+### ReadonlyArray
+
+Arrays use `ReadonlyArray<T>`:
+
+```typescript
+// ❌ Mutable array
+tags: string[];
+
+// ✅ Immutable array
+tags: ReadonlyArray<string>;
+```

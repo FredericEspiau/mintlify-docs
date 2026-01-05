@@ -1,0 +1,125 @@
+---
+title: "Environment Variables"
+description: "Complete reference of all configuration options"
+---
+
+## Required Variables
+
+### GEMINI_API_KEY
+
+Google Gemini API key for flashcard generation.
+
+```bash
+GEMINI_API_KEY=your-api-key
+```
+
+Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+
+### Transcription (one required)
+
+#### HUGGING_FACE_TOKEN
+
+Token for WhisperX speaker diarization.
+
+```bash
+HUGGING_FACE_TOKEN=hf_xxxxx
+```
+
+Required for:
+- `pyannote/speaker-diarization-3.1`
+- `pyannote/segmentation-3.0`
+
+Get a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
+
+#### PYANNOTE_KEY
+
+API key for Pyannote cloud transcription.
+
+```bash
+PYANNOTE_KEY=your-api-key
+```
+
+Get a key at [pyannote.ai](https://www.pyannote.ai/).
+
+## Optional Variables
+
+### GEMINI_MODEL
+
+Gemini model to use for card generation.
+
+```bash
+GEMINI_MODEL=gemini-2.5-flash  # Default
+GEMINI_MODEL=gemini-2.0-pro    # Higher quality
+```
+
+### DEBUG
+
+Enable verbose debug output.
+
+```bash
+DEBUG=true
+```
+
+Shows:
+- Full error stack traces
+- API request/response details
+- Pipeline stage timing
+
+### CREDENTIALS_PATH
+
+Path to Google OAuth credentials file.
+
+```bash
+CREDENTIALS_PATH=./src/auth/credentials.json  # Default
+```
+
+## Configuration Summary
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `GEMINI_API_KEY` | Yes | - | Gemini API key |
+| `HUGGING_FACE_TOKEN` | One of | - | WhisperX diarization |
+| `PYANNOTE_KEY` | these | - | Pyannote cloud API |
+| `GEMINI_MODEL` | No | gemini-2.5-flash | Gemini model ID |
+| `DEBUG` | No | false | Verbose logging |
+| `CREDENTIALS_PATH` | No | src/auth/credentials.json | OAuth creds path |
+
+## .env File
+
+Create a `.env` file in the project root:
+
+```bash
+# Required
+GEMINI_API_KEY=your-gemini-key
+
+# Transcription (choose one)
+HUGGING_FACE_TOKEN=hf_xxxx
+# PYANNOTE_KEY=your-pyannote-key
+
+# Optional
+# GEMINI_MODEL=gemini-2.0-pro
+# DEBUG=true
+```
+
+<Warning>
+Never commit `.env` files to version control. The `.gitignore` already excludes them.
+</Warning>
+
+## Loading Order
+
+Environment variables are loaded in order:
+1. System environment
+2. `.env` file (if present)
+3. CLI arguments (highest priority)
+
+## Validation
+
+Missing required variables cause early failure:
+
+```typescript
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error(
+    "GEMINI_API_KEY not set. Get one at https://aistudio.google.com/apikey"
+  );
+}
+```

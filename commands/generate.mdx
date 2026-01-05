@@ -1,0 +1,128 @@
+---
+title: "generate"
+description: "Main pipeline command for processing videos into flashcards"
+---
+
+## Synopsis
+
+```bash
+pnpm start -m <mode> [options]
+pnpm start generate -m <mode> [options]
+```
+
+The `generate` command (default when no command specified) orchestrates the full pipeline from video to flashcards.
+
+## Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `-m, --mode <mode>` | string | Yes | Processing mode (e.g., `cooking`) |
+| `-d, --date <date>` | string | No | Date for Google Photos (YYYY-MM-DD) |
+| `--video-file <path>` | string | No | Path to local video file |
+| `--audio-file <path>` | string | No | Path to local audio file |
+| `--transcript-file <path>` | string | No | Path to local transcript file |
+| `-o, --output <dir>` | string | No | Output directory (default: `./output`) |
+| `--engine <engine>` | string | No | Transcription engine: `whisperx` or `pyannote` |
+
+## Examples
+
+### From Google Photos
+
+```bash
+# Download and process video from January 15, 2024
+pnpm start -m cooking -d 2024-01-15
+
+# With custom output directory
+pnpm start -m cooking -d 2024-01-15 -o ./my-output
+```
+
+### From Local Files
+
+```bash
+# Start from video file
+pnpm start -m cooking --video-file ./cooking-lesson.mp4
+
+# Start from audio file (skip video conversion)
+pnpm start -m cooking --audio-file ./lesson.mp3
+
+# Start from transcript (card generation only)
+pnpm start -m cooking --transcript-file ./lesson.md
+```
+
+### Transcription Engine Selection
+
+```bash
+# Use Pyannote cloud API instead of WhisperX
+pnpm start -m cooking -d 2024-01-15 --engine pyannote
+```
+
+## Pipeline Stages
+
+Depending on the input source, different stages are executed:
+
+| Source | Stages Executed |
+|--------|-----------------|
+| Google Photos (`-d`) | OAuth → Picker → Download → Audio → Transcribe → Cards |
+| Video file | Audio → Transcribe → Cards |
+| Audio file | Transcribe → Cards |
+| Transcript file | Cards only |
+
+## Output Structure
+
+```
+output/
+├── video/
+│   └── 2024-01-15_cooking.mp4
+├── audio/
+│   └── 2024-01-15_cooking.mp3
+├── transcripts/
+│   └── 2024-01-15_cooking.md
+└── cards/
+    └── cooking-cards.json
+```
+
+## Authentication Flow
+
+When using Google Photos for the first time:
+
+1. A browser opens for Google OAuth authentication
+2. Grant permissions for Google Photos access
+3. Tokens are stored in `tokens/stored-tokens.json`
+4. Future runs reuse the stored tokens (auto-refresh)
+
+## Mode Configuration
+
+The mode determines:
+- **Card generation prompt** - Instructions for Gemini
+- **Valid tags** - Allowed tags for cards
+- **Database path** - Where cards are stored
+
+See [Mode System](/modes/overview) for details.
+
+## Error Handling
+
+Common errors and solutions:
+
+<AccordionGroup>
+  <Accordion title="GEMINI_API_KEY not set">
+    ```bash
+    export GEMINI_API_KEY=your-key-here
+    ```
+    Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+  </Accordion>
+  
+  <Accordion title="FFmpeg not found">
+    Install FFmpeg:
+    ```bash
+    # macOS
+    brew install ffmpeg
+    
+    # Ubuntu
+    sudo apt install ffmpeg
+    ```
+  </Accordion>
+  
+  <Accordion title="WhisperX failed">
+    Ensure `HUGGING_FACE_TOKEN` is set for speaker diarization, or use `--engine pyannote`.
+  </Accordion>
+</AccordionGroup>

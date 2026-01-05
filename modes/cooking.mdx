@@ -1,0 +1,130 @@
+---
+title: "Cooking Mode"
+description: "French cooking flashcard generation"
+---
+
+## Overview
+
+The cooking mode extracts educational cooking content from video transcripts and generates flashcards in French.
+
+## Configuration
+
+```typescript
+// src/modes/cooking.ts
+
+const TAGS = ["technique", "ingredient", "recipe"] as const;
+
+export const COOKING_MODE: ModeConfig = {
+  name: "cooking",
+  databasePath: "output/cards/cooking-cards.json",
+  validTags: TAGS,
+  tagSchema: createTagSchema(TAGS),
+  cardPrompt: COOKING_PROMPT,
+};
+```
+
+## Tags
+
+| Tag | Description | Examples |
+|-----|-------------|----------|
+| `technique` | Cooking methods and skills | Julienne, braising, tempering |
+| `ingredient` | Ingredients and their properties | Fond brun, aromatics, emulsifiers |
+| `recipe` | Complete dishes or recipes | Sauce béarnaise, confit de canard |
+
+## Card Prompt
+
+The cooking mode uses a French-language prompt:
+
+```
+Tu es un expert en cuisine française. Analyse cette transcription
+de cours de cuisine et génère des flashcards éducatives.
+
+RÈGLES IMPORTANTES:
+1. Toutes les cartes doivent être en français
+2. La question (front) doit être claire et précise
+3. La réponse (back) doit être concise mais complète
+4. Utilise uniquement les tags: "technique", "ingredient", "recipe"
+5. Ignore les connaissances évidentes (ex: l'eau bout à 100°C)
+6. Concentre-toi sur les techniques professionnelles et astuces
+7. Maximum 20 cartes par transcription
+
+FORMAT DE SORTIE:
+Retourne un array JSON valide avec des objets ayant:
+- "front": la question
+- "back": la réponse
+- "tags": array avec un seul tag parmi les autorisés
+```
+
+## Example Cards
+
+<AccordionGroup>
+  <Accordion title="Technique Example">
+    **Front:**
+    > Comment faire une julienne de légumes?
+    
+    **Back:**
+    > Couper en bâtonnets fins et réguliers de 3mm × 3mm × 5cm. Commencer par des tranches fines, empiler et couper en allumettes.
+    
+    **Tags:** `["technique"]`
+  </Accordion>
+  
+  <Accordion title="Ingredient Example">
+    **Front:**
+    > Qu'est-ce que le fond brun et comment est-il utilisé?
+    
+    **Back:**
+    > Un bouillon concentré fait d'os et de légumes caramélisés. C'est la base des sauces classiques comme la sauce bordelaise ou l'espagnole.
+    
+    **Tags:** `["ingredient"]`
+  </Accordion>
+  
+  <Accordion title="Recipe Example">
+    **Front:**
+    > Quels sont les éléments essentiels d'une sauce béarnaise?
+    
+    **Back:**
+    > Réduction de vinaigre avec échalotes et estragon, jaunes d'œufs montés au bain-marie avec du beurre clarifié, finition avec estragon et cerfeuil frais.
+    
+    **Tags:** `["recipe"]`
+  </Accordion>
+</AccordionGroup>
+
+## Filtering Rules
+
+The prompt instructs Gemini to filter out:
+- Obvious knowledge (water boils at 100°C)
+- Non-cooking content (casual conversation)
+- Repetitive information
+- Content without educational value
+
+## Database Location
+
+Cards are stored in:
+```
+output/cards/cooking-cards.json
+```
+
+## Usage
+
+```bash
+# Generate from Google Photos
+pnpm start -m cooking -d 2024-01-15
+
+# Generate from local video
+pnpm start -m cooking --video-file ./cours-cuisine.mp4
+
+# Review cooking cards
+pnpm start review
+
+# List technique cards
+pnpm start list --tag technique
+```
+
+## Why French?
+
+The cooking mode is designed for French culinary education, which has specific vocabulary:
+- Technical terms (julienne, brunoise, mirepoix)
+- Classical sauce names (béarnaise, hollandaise)
+- Professional kitchen terminology
+
+If you need another language, create a new mode with an appropriate prompt.

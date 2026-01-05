@@ -1,97 +1,90 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "CookingAuto"
+description: "Transform cooking videos into spaced repetition flashcards"
 ---
 
-## Setting up
+## Overview
 
-Get your documentation site up and running in minutes.
+CookingAuto is a TypeScript CLI that orchestrates a multi-stage pipeline to convert videos into FSRS-based flashcards:
+
+1. **Download** videos from Google Photos (or use local files)
+2. **Convert** video to audio via FFmpeg
+3. **Transcribe** with speaker diarization (WhisperX or Pyannote)
+4. **Generate** flashcards via Gemini AI
+5. **Store** in FSRS-based spaced repetition database
 
 <Card
-  title="Start here"
+  title="Get Started"
   icon="rocket"
   href="/quickstart"
   horizontal
 >
-  Follow our three step quickstart guide.
+  Install prerequisites and run your first pipeline
 </Card>
 
-## Make it yours
+## Key Features
 
-Design a docs site that looks great and empowers your users.
+<CardGroup cols={2}>
+  <Card title="Pipeline Architecture" icon="diagram-project" href="/architecture/overview">
+    Modular, immutable pipeline with context threading
+  </Card>
+  <Card title="FSRS Scheduling" icon="brain" href="/srs/overview">
+    Scientific spaced repetition using ts-fsrs
+  </Card>
+  <Card title="Mode System" icon="sliders" href="/modes/overview">
+    Extensible modes for different content types
+  </Card>
+  <Card title="Multiple Sources" icon="photo-film" href="/integrations/google-photos">
+    Google Photos, local video, audio, or transcript
+  </Card>
+</CardGroup>
+
+## Architecture Highlights
 
 <Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+  <Card title="Immutability First" icon="lock">
+    All data structures are readonly. Modules return new contexts rather than mutating inputs.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Dependency Injection" icon="syringe">
+    No global state. FSRS scheduler, OAuth client, and transcription engine passed through context.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Type Safety" icon="shield-check">
+    Strict TypeScript with Zod validation at all boundaries.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Fail-Fast Validation" icon="triangle-exclamation">
+    Prerequisites validated before pipeline execution.
   </Card>
 </Columns>
 
-## Create beautiful pages
+## Quick Commands
 
-Everything you need to create world-class documentation.
+```bash
+# Run main pipeline
+pnpm start -m cooking -d 2024-01-15
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+# Interactive review session
+pnpm start review -l 20
 
-## Need inspiration?
+# List due cards
+pnpm start list --due
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+# View statistics
+pnpm start stats
+```
+
+## Project Structure
+
+```
+src/
+├── index.ts              # CLI entry point
+├── config.ts             # Configuration constants
+├── commands/             # CLI command implementations
+├── modes/                # Processing mode configurations
+├── pipeline/             # Pipeline execution engine
+├── modules/              # Pipeline modules (sources, processors)
+├── processing/           # External tool integrations
+├── photos/               # Google Photos integration
+├── srs/                  # Spaced repetition system
+├── types/                # Zod validation schemas
+└── utils/                # Logger utilities
+```

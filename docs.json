@@ -14,7 +14,7 @@
         "tab": "Guides",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
               "index",
               "quickstart",
@@ -22,47 +22,65 @@
             ]
           },
           {
-            "group": "Customization",
+            "group": "Architecture",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
-          },
-          {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "architecture/overview",
+              "architecture/pipeline",
+              "architecture/immutability"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "CLI Commands",
             "pages": [
-              "api-reference/introduction"
+              "commands/generate",
+              "commands/review",
+              "commands/list",
+              "commands/stats",
+              "commands/delete"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "SRS System",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "srs/overview",
+              "srs/cards",
+              "srs/scheduling",
+              "srs/generator"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "reference/environment",
+              "reference/types",
+              "reference/schemas"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Extending",
+        "groups": [
+          {
+            "group": "Modes",
+            "pages": [
+              "modes/overview",
+              "modes/cooking",
+              "modes/creating-modes"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/google-photos",
+              "integrations/transcription",
+              "integrations/gemini",
+              "integrations/ffmpeg"
             ]
           }
         ]
@@ -71,14 +89,9 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "GitHub",
+          "href": "https://github.com/your-org/cookingauto",
+          "icon": "github"
         }
       ]
     }
@@ -88,35 +101,14 @@
     "dark": "/logo/dark.svg"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/your-org/cookingauto"
     }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/your-org/cookingauto"
     }
   }
 }

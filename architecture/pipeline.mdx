@@ -1,0 +1,179 @@
+---
+title: "Pipeline Architecture"
+description: "Deep dive into PipelineModule, PipelineContext, and the runner"
+---
+
+## Core Interfaces
+
+### PipelineModule
+
+Every pipeline stage implements this interface:
+
+```typescript
+// src/pipeline/types.ts
+
+interface PipelineModule {
+  readonly name: string;
+  readonly description: string;
+  
+  // Main processing logic
+  execute(context: PipelineContext): Promise<PipelineContext>;
+  
+  // Optional: Skip if output already exists
+  shouldSkip?(context: PipelineContext): boolean;
+  
+  // Optional: Fail-fast validation
+  validatePrerequisites?(context: PipelineContext): Promise<void>;
+}
+```
+
+### PipelineContext
+
+The immutable context passed between modules:
+
+```typescript
+// src/pipeline/types.ts
+
+interface PipelineContext {
+  // Configuration
+  readonly modeConfig: ModeConfig;
+  readonly outputDirectory: string;
+  readonly transcriptionEngine: TranscriptionEngine;
+  
+  // Source-specific
+  readonly targetDate?: string;         // For Google Photos
+  
+  // Accumulated paths
+  readonly videoPath?: string;          // Set by source modules
+  readonly audioPath?: string;          // Set by audio processor
+  readonly transcriptPath?: string;     // Set by transcription
+  
+  // Auth state
+  readonly oauth2Client?: OAuth2Client; // Set by Google Photos
+}
+```
+
+## Pipeline Runner
+
+The runner in `src/pipeline/runner.ts` executes modules in two phases:
+
+### Phase 1: Prerequisite Validation
+
+```typescript
+// Validate ALL modules before any execution
+for (const module of modules) {
+  if (module.validatePrerequisites) {
+    await module.validatePrerequisites(context);
+  }
+}
+```
+
+<Note>
+If any prerequisite fails, the entire pipeline aborts before any processing begins. This prevents partial execution.
+</Note>
+
+### Phase 2: Sequential Execution
+
+```typescript
+let currentContext = initialContext;
+
+for (const module of modules) {
+  // Check skip condition
+  if (module.shouldSkip?.(currentContext)) {
+    logger.info(`Skipping ${module.name}: already complete`);
+    continue;
+  }
+  
+  // Execute and update context immutably
+  currentContext = await module.execute(currentContext);
+}
+```
+
+## Example Module Implementation
+
+Here's the video-to-audio module:
+
+```typescript
+// src/modules/processors/video-to-audio.ts
+
+export const videoToAudioModule: PipelineModule = {
+  name: "video-to-audio",
+  description: "Convert video to MP3 audio using FFmpeg",
+  
+  shouldSkip(context) {
+    // Skip if audio file already exists
+    const audioPath = getAudioPath(context);
+    return fs.existsSync(audioPath);
+  },
+  
+  async validatePrerequisites(context) {
+    if (!context.videoPath) {
+      throw new Error("No video path in context");
+    }
+    if (!fs.existsSync(context.videoPath)) {
+      throw new Error(`Video not found: ${context.videoPath}`);
+    }
+  },
+  
+  async execute(context) {
+    const videoPath = context.videoPath!;
+    const audioPath = getAudioPath(context);
+    
+    await convertToAudio(videoPath, audioPath);
+    
+    // Return NEW context with audioPath added
+    return { ...context, audioPath };
+  },
+};
+```
+
+## Context Immutability
+
+<Warning>
+Never mutate the context. Always return a new object with spread syntax.
+</Warning>
+
+```typescript
+// ❌ Bad - mutates context
+async execute(context) {
+  context.audioPath = newPath;  // Mutation!
+  return context;
+}
+
+// ✅ Good - returns new context
+async execute(context) {
+  return { ...context, audioPath: newPath };
+}
+```
+
+## Module Categories
+
+### Source Modules (`src/modules/sources/`)
+
+Acquire input content:
+- `google-photos.ts` - Download from Google Photos
+- `local-video.ts` - Use local video file
+- `local-audio.ts` - Use local audio file
+- `local-transcript.ts` - Use local transcript
+
+### Processor Modules (`src/modules/processors/`)
+
+Transform content:
+- `video-to-audio.ts` - FFmpeg conversion
+- `transcribe.ts` - WhisperX or Pyannote
+
+## Error Handling
+
+Modules should throw descriptive errors:
+
+```typescript
+async validatePrerequisites(context) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error(
+      "GEMINI_API_KEY not set. Get one at https://aistudio.google.com/apikey"
+    );
+  }
+}
+```
+
+The runner catches errors and displays them with `logger.error()`.

@@ -1,0 +1,179 @@
+---
+title: "Card Structure"
+description: "Card schema, ID generation, and database format"
+---
+
+## Card Schema
+
+Each flashcard contains:
+
+```typescript
+interface SrsCard {
+  readonly id: string;
+  readonly content: {
+    readonly front: string;
+    readonly back: string;
+    readonly tags: ReadonlyArray<string>;
+  };
+  readonly scheduling: FsrsCardData;
+  readonly metadata: {
+    readonly createdAt: string;
+    readonly sourceTranscript: string;
+    readonly updatedAt: string;
+  };
+}
+```
+
+## Card ID Generation
+
+Card IDs are deterministic SHA256 hashes of the content:
+
+```typescript
+// src/srs/card-id.ts
+
+import { createHash } from "crypto";
+
+export function generateCardId(front: string, back: string): string {
+  const hash = createHash("sha256");
+  hash.update(front);
+  hash.update(back);
+  return hash.digest("hex").slice(0, 16);
+}
+```
+
+<Note>
+Using content-based hashes enables **duplicate detection**. The same question+answer always generates the same ID, preventing duplicates across sessions.
+</Note>
+
+### ID Properties
+
+| Property | Value |
+|----------|-------|
+| Algorithm | SHA256 |
+| Length | 16 characters (first 64 bits) |
+| Input | `front + back` content |
+| Collision resistance | Sufficient for card database sizes |
+
+## Example Card
+
+```json
+{
+  "id": "a1b2c3d4e5f6g7h8",
+  "content": {
+    "front": "Quelle est la technique pour attendrir la viande?",
+    "back": "Le marinage dans un acide (citron, vinaigre) pendant 2-24h, ou l'utilisation d'un attendrisseur mécanique.",
+    "tags": ["technique"]
+  },
+  "scheduling": {
+    "due": "2024-01-20T10:00:00.000Z",
+    "stability": 15.5,
+    "difficulty": 4.2,
+    "elapsed_days": 5,
+    "scheduled_days": 12,
+    "reps": 3,
+    "lapses": 0,
+    "state": 2
+  },
+  "metadata": {
+    "createdAt": "2024-01-08T14:30:00.000Z",
+    "sourceTranscript": "2024-01-08_cooking-lesson.md",
+    "updatedAt": "2024-01-15T09:15:00.000Z"
+  }
+}
+```
+
+## Scheduling Fields
+
+The `scheduling` object contains FSRS state:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `due` | ISO date | Next review date/time |
+| `stability` | number | Days until 90% forgetting probability |
+| `difficulty` | number | Card difficulty (1-10 scale) |
+| `elapsed_days` | number | Days since last review |
+| `scheduled_days` | number | Days scheduled for this interval |
+| `reps` | number | Total successful reviews |
+| `lapses` | number | Times card was forgotten |
+| `state` | 0-3 | Current state (New/Learning/Review/Relearning) |
+
+## Database Schema
+
+Cards are stored in a JSON database:
+
+```typescript
+interface CardDatabase {
+  readonly cards: Readonly<Record<string, SrsCard>>;
+  readonly reviewLogs: ReadonlyArray<ReviewLogEntry>;
+  readonly lastUpdated: string;
+  readonly version: 1;
+}
+```
+
+### Review Log Entry
+
+Each review is logged for analytics:
+
+```typescript
+interface ReviewLogEntry {
+  readonly cardId: string;
+  readonly rating: 1 | 2 | 3 | 4;
+  readonly reviewedAt: string;
+  readonly state: 0 | 1 | 2 | 3;
+  readonly stability: number;
+  readonly difficulty: number;
+  readonly elapsedDays: number;
+  readonly scheduledDays: number;
+}
+```
+
+## Database Location
+
+The database path is determined by the mode:
+
+```typescript
+// Cooking mode stores cards here:
+const databasePath = "output/cards/cooking-cards.json";
+```
+
+Each mode can have its own database to keep cards separate.
+
+## Atomic Writes
+
+Database updates use atomic file operations:
+
+```typescript
+// src/srs/database.ts
+
+export async function saveDatabase(
+  path: string,
+  db: CardDatabase
+): Promise<void> {
+  const tempPath = `${path}.tmp`;
+  
+  // Write to temp file first
+  await fs.promises.writeFile(
+    tempPath,
+    JSON.stringify(db, null, 2)
+  );
+  
+  // Atomic rename
+  await fs.promises.rename(tempPath, path);
+}
+```
+
+This prevents database corruption from interrupted writes.
+
+## Tags
+
+Tags are validated against the mode's allowed tags:
+
+```typescript
+// Cooking mode tags
+const validTags = ["technique", "ingredient", "recipe"] as const;
+
+// Zod schema validates tags at runtime
+const tagSchema = Schema.Enum(...validTags);
+```
+
+Invalid tags cause card generation to fail.

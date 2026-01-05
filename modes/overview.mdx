@@ -1,0 +1,104 @@
+---
+title: "Mode System"
+description: "Extensible modes for different content types"
+---
+
+## What are Modes?
+
+Modes define how CookingAuto processes content. Each mode specifies:
+- **Card generation prompt** - Instructions for Gemini AI
+- **Valid tags** - Allowed card categories
+- **Database path** - Where cards are stored
+
+This enables processing different types of content (cooking, languages, music theory, etc.) with specialized prompts.
+
+## ModeConfig Interface
+
+```typescript
+// src/modes/types.ts
+
+interface ModeConfig {
+  readonly name: string;
+  readonly cardPrompt: string;
+  readonly databasePath: string;
+  readonly validTags: ReadonlyArray<string>;
+  readonly tagSchema: Schema.Schema<string, string>;
+}
+```
+
+## Built-in Modes
+
+Currently, one mode is included:
+
+| Mode | Tags | Database | Description |
+|------|------|----------|-------------|
+| `cooking` | technique, ingredient, recipe | `output/cards/cooking-cards.json` | French cooking education |
+
+## Mode Selection
+
+Modes are selected via the `-m` CLI option:
+
+```bash
+# Use cooking mode
+pnpm start -m cooking -d 2024-01-15
+
+# Future: language mode
+pnpm start -m language --audio-file lesson.mp3
+```
+
+## Mode Registry
+
+Modes are registered in `src/modes/index.ts`:
+
+```typescript
+import { COOKING_MODE } from "./cooking.js";
+
+const modeRegistry: Record<string, ModeConfig> = {
+  cooking: COOKING_MODE,
+  // Add more modes here
+};
+
+export function getMode(name: string): ModeConfig {
+  const mode = modeRegistry[name];
+  if (!mode) {
+    throw new Error(`Unknown mode: ${name}`);
+  }
+  return mode;
+}
+```
+
+## Tag Schema Helper
+
+The `createTagSchema` helper generates Zod validation:
+
+```typescript
+// src/modes/types.ts
+
+import { Schema } from "effect";
+
+export function createTagSchema<T extends string>(
+  tags: ReadonlyArray<T>
+): Schema.Schema<T, T> {
+  return Schema.Literal(...tags);
+}
+```
+
+## Mode Isolation
+
+Each mode has its own:
+- **Database file** - Cards don't mix between modes
+- **Tag vocabulary** - Only mode-specific tags allowed
+- **Generation prompt** - Tailored for the content type
+
+This allows running multiple modes on different content without conflicts.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Cooking Mode" icon="utensils" href="/modes/cooking">
+    Details of the cooking mode implementation
+  </Card>
+  <Card title="Create Your Own" icon="plus" href="/modes/creating-modes">
+    Step-by-step guide to add a new mode
+  </Card>
+</CardGroup>

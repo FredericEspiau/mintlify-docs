@@ -1,0 +1,128 @@
+---
+title: "list"
+description: "List and filter flashcards"
+---
+
+## Synopsis
+
+```bash
+pnpm start list [options]
+```
+
+Display flashcards with various filtering options.
+
+## Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `--due` | boolean | Show only cards due for review |
+| `--state <state>` | string | Filter by state: `new`, `learning`, `review`, `relearning` |
+| `--tag <tag>` | string | Filter by tag (e.g., `technique`, `ingredient`) |
+| `-l, --limit <number>` | number | Maximum cards to display |
+
+## Examples
+
+### Basic Listing
+
+```bash
+# List all cards
+pnpm start list
+
+# List first 10 cards
+pnpm start list -l 10
+```
+
+### Filter by Due Status
+
+```bash
+# Show only cards due for review
+pnpm start list --due
+
+# Due cards with limit
+pnpm start list --due -l 20
+```
+
+### Filter by State
+
+```bash
+# Show new cards only
+pnpm start list --state new
+
+# Show cards in learning phase
+pnpm start list --state learning
+
+# Show graduated review cards
+pnpm start list --state review
+
+# Show cards being relearned (lapsed)
+pnpm start list --state relearning
+```
+
+### Filter by Tag
+
+```bash
+# Show technique cards only
+pnpm start list --tag technique
+
+# Show ingredient cards
+pnpm start list --tag ingredient
+```
+
+### Combined Filters
+
+```bash
+# Due technique cards
+pnpm start list --due --tag technique
+
+# New ingredient cards, limit 5
+pnpm start list --state new --tag ingredient -l 5
+```
+
+## Output Format
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ ID: a1b2c3d4  │ State: Review  │ Tags: technique            │
+├──────────────────────────────────────────────────────────────┤
+│ Front: Comment faire une julienne de légumes?               │
+│ Back:  Couper en bâtonnets fins de 3mm x 3mm x 5cm...       │
+│ Due:   2024-01-20 (in 2 days)                               │
+│ Stats: S=15.2 D=4.8 Reps=5                                  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## Field Descriptions
+
+| Field | Description |
+|-------|-------------|
+| ID | First 8 chars of SHA256 hash |
+| State | Current FSRS state |
+| Tags | Card categories |
+| Front | Question side |
+| Back | Answer side (truncated) |
+| Due | Next review date |
+| S | Stability (days until forgetting) |
+| D | Difficulty (1-10 scale) |
+| Reps | Total review count |
+
+## Card States
+
+| State | Description |
+|-------|-------------|
+| `new` | Never reviewed |
+| `learning` | Initial learning phase |
+| `review` | Graduated, in review rotation |
+| `relearning` | Lapsed card being relearned |
+
+## Export Options
+
+The `list` command is display-only. For data export:
+
+```bash
+# View raw database
+cat output/cards/cooking-cards.json | jq '.cards'
+
+# Export to CSV (using jq)
+cat output/cards/cooking-cards.json | jq -r \
+  '.cards[] | [.id, .content.front, .content.back] | @csv'
+```
